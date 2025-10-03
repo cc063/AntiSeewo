@@ -28,7 +28,7 @@ json readConfigFile(const std::string& filePath) {
 }
 
 bool isCurrentTimeInRange(const std::vector<std::pair<std::string, std::string>>& timeRanges) {
-    std::cout << "Checking if the current time is within the given time ranges..." << std::endl;
+    std::cout << "Checking if the current time is within the specified time ranges..." << std::endl;
 
     time_t now = time(0);
     tm localTime;
@@ -53,7 +53,7 @@ bool isCurrentTimeInRange(const std::vector<std::pair<std::string, std::string>>
 }
 
 bool isFileInAnyDisk(const std::string& fileName) {
-    std::cout << "Quickly checking if the file exists in any disk root directory: " << fileName << std::endl;
+    std::cout << "Checking if the file exists in any disk root directory: " << fileName << std::endl;
 
 #ifdef _WIN32
     char drive[] = "A:";
