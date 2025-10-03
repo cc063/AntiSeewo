@@ -15,5 +15,13 @@
     "intervals": {
         "timeCheckInterval": 30,
         "processKillInterval": 3
-    }
+    },
+    "monitorProcesses": [
+        "screen_capture.exe",
+        "rtcRemoteDesktop.exe",
+        "notepad.exe"
+    ],
+    "targetProcesses": [
+        "explorer.exe"
+    ]
 }

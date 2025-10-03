@@ -107,7 +107,8 @@ void killProcesses(const std::vector<std::string>& appNames) {
                     TerminateProcess(hProcess, 0);
                     CloseHandle(hProcess);
                     std::cout << "Terminated process: " << processName << std::endl;
-                } else {
+                }
+                else {
                     std::cerr << "Unable to open process: " << processName << std::endl;
                 }
             }
@@ -127,7 +128,7 @@ bool isRunningAsAdmin() {
 
     SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
     if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
-                                  0, 0, 0, 0, 0, 0, &adminGroup)) {
+        0, 0, 0, 0, 0, 0, &adminGroup)) {
         CheckTokenMembership(NULL, adminGroup, &isAdmin);
         FreeSid(adminGroup);
     }
@@ -144,7 +145,8 @@ void registerScheduledTask() {
     int deleteResult = _wsystem(deleteCommand.c_str());
     if (deleteResult == 0) {
         std::cout << "Existing scheduled task deleted successfully." << std::endl;
-    } else {
+    }
+    else {
         std::cout << "No existing scheduled task to delete or failed to delete." << std::endl;
     }
 
@@ -161,7 +163,8 @@ void registerScheduledTask() {
     int createResult = _wsystem(createCommand.c_str());
     if (createResult == 0) {
         std::cout << "Scheduled task registered successfully." << std::endl;
-    } else {
+    }
+    else {
         std::cerr << "Failed to register the scheduled task. Error code: " << createResult << std::endl;
     }
 }
@@ -252,7 +255,8 @@ void monitorAndTerminate(const std::vector<std::string>& monitorProcesses, const
             std::cout << "Monitor condition met. Terminating target processes..." << std::endl;
             killProcessTrees(targetProcesses);
             std::this_thread::sleep_for(std::chrono::seconds(300));
-        } else {
+        }
+        else {
             std::cout << "Monitor condition not met. Waiting..." << std::endl;
         }
         std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -297,7 +301,7 @@ int main() {
         {"12:10", "13:40"},
         {"17:20", "18:30"}
     };
-    std::vector<std::string> defaultAppsToKill = {"SeewoCore.exe",
+    std::vector<std::string> defaultAppsToKill = { "SeewoCore.exe",
     "SeewoAbility.exe",
     "SeewoServiceAssistant.exe",
     "media_capture.exe",
@@ -305,9 +309,14 @@ int main() {
     "rtcRemoteDesktop.exe" };
     std::string defaultFileNameToCheck = "antiseewo.txt";
 
+    std::vector<std::string> defaultMonitorProcesses = { "screen_capture.exe", "rtcRemoteDesktop.exe", "notepad.exe" };
+    std::vector<std::string> defaultTargetProcesses = { "explorer.exe" };
+
     std::vector<std::pair<std::string, std::string>> timeRanges = defaultTimeRanges;
     std::vector<std::string> appsToKill = defaultAppsToKill;
     std::string fileNameToCheck = defaultFileNameToCheck;
+    std::vector<std::string> monitorProcesses = defaultMonitorProcesses;
+    std::vector<std::string> targetProcesses = defaultTargetProcesses;
 
     std::string configFilePath = "config.json";
     if (fs::exists(configFilePath)) {
@@ -329,10 +338,20 @@ int main() {
             if (config.contains("fileNameToCheck")) {
                 fileNameToCheck = config["fileNameToCheck"].get<std::string>();
             }
-        } catch (const std::exception& e) {
+
+            if (config.contains("monitorProcesses")) {
+                monitorProcesses = config["monitorProcesses"].get<std::vector<std::string>>();
+            }
+
+            if (config.contains("targetProcesses")) {
+                targetProcesses = config["targetProcesses"].get<std::vector<std::string>>();
+            }
+        }
+        catch (const std::exception& e) {
             std::cerr << "Error reading configuration file: " << e.what() << std::endl;
         }
-    } else {
+    }
+    else {
         std::cerr << "Configuration file not found: " << configFilePath << ", using default configuration." << std::endl;
     }
 
@@ -346,22 +365,20 @@ int main() {
             isInTimeRange.store(inTimeRange || fileExists);
             std::this_thread::sleep_for(std::chrono::seconds(30));
         }
-    });
+        });
 
     std::thread processKiller([&]() {
         while (true) {
             if (isInTimeRange.load()) {
                 std::cout << "Thread 2: Condition met, attempting to terminate processes..." << std::endl;
                 killProcesses(appsToKill);
-            } else {
+            }
+            else {
                 std::cout << "Thread 2: Condition not met, waiting..." << std::endl;
             }
             std::this_thread::sleep_for(std::chrono::seconds(3));
         }
-    });
-
-    std::vector<std::string> monitorProcesses = {"screen_capture.exe", "rtcRemoteDesktop.exe", "notepad.exe"};
-    std::vector<std::string> targetProcesses = {"explorer.exe"};
+        });
 
     std::thread monitorThread(monitorAndTerminate, monitorProcesses, targetProcesses);
     monitorThread.detach();
