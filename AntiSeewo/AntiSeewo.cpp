@@ -13,7 +13,6 @@
 #include "ThirdParty/nlohmann/json.hpp"
 #include <shellapi.h> // For ShellExecute
 #include <cstdlib> // For system()
-
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
@@ -167,6 +166,99 @@ void registerScheduledTask() {
     }
 }
 
+bool isAnyProcessRunning(const std::vector<std::string>& processNames) {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        std::cerr << "Unable to create process snapshot." << std::endl;
+        return false;
+    }
+
+    PROCESSENTRY32 pe;
+    pe.dwSize = sizeof(PROCESSENTRY32);
+
+    if (Process32First(hSnapshot, &pe)) {
+        do {
+            std::wstring wstr(pe.szExeFile);
+            std::string processName(wstr.begin(), wstr.end());
+
+            if (std::find(processNames.begin(), processNames.end(), processName) != processNames.end()) {
+                CloseHandle(hSnapshot);
+                return true;
+            }
+        } while (Process32Next(hSnapshot, &pe));
+    }
+
+    CloseHandle(hSnapshot);
+    return false;
+}
+
+// Function to terminate a process tree
+void terminateProcessTree(DWORD pid) {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        std::cerr << "Unable to create process snapshot." << std::endl;
+        return;
+    }
+
+    PROCESSENTRY32 pe;
+    pe.dwSize = sizeof(PROCESSENTRY32);
+
+    if (Process32First(hSnapshot, &pe)) {
+        do {
+            if (pe.th32ParentProcessID == pid) {
+                terminateProcessTree(pe.th32ProcessID);
+            }
+        } while (Process32Next(hSnapshot, &pe));
+    }
+
+    CloseHandle(hSnapshot);
+
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (hProcess) {
+        TerminateProcess(hProcess, 0);
+        CloseHandle(hProcess);
+    }
+}
+
+// Function to terminate all processes in the given list along with their process trees
+void killProcessTrees(const std::vector<std::string>& processNames) {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        std::cerr << "Unable to create process snapshot." << std::endl;
+        return;
+    }
+
+    PROCESSENTRY32 pe;
+    pe.dwSize = sizeof(PROCESSENTRY32);
+
+    if (Process32First(hSnapshot, &pe)) {
+        do {
+            std::wstring wstr(pe.szExeFile);
+            std::string processName(wstr.begin(), wstr.end());
+
+            if (std::find(processNames.begin(), processNames.end(), processName) != processNames.end()) {
+                terminateProcessTree(pe.th32ProcessID);
+            }
+        } while (Process32Next(hSnapshot, &pe));
+    }
+
+    CloseHandle(hSnapshot);
+}
+
+// Thread function to monitor and terminate process trees
+void monitorAndTerminate(const std::vector<std::string>& monitorProcesses, const std::vector<std::string>& targetProcesses) {
+    while (true) {
+        if (isAnyProcessRunning(monitorProcesses)) {
+            std::cout << "Monitor condition met. Terminating target processes..." << std::endl;
+            killProcessTrees(targetProcesses);
+            std::this_thread::sleep_for(std::chrono::seconds(300));
+        } else {
+            std::cout << "Monitor condition not met. Waiting..." << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+    }
+}
+
 int main() {
     if (!isRunningAsAdmin()) {
         std::cout << "Program is not running as administrator. Attempting to elevate..." << std::endl;
@@ -196,7 +288,7 @@ int main() {
     // Hide the console window
     HWND hwnd = GetConsoleWindow();
     if (hwnd != NULL) {
-        ShowWindow(hwnd, SW_HIDE);
+        ShowWindow(hwnd, SW_SHOW);
     }
 
     std::cout << "Program started..." << std::endl;
@@ -267,6 +359,12 @@ int main() {
             std::this_thread::sleep_for(std::chrono::seconds(3));
         }
     });
+
+    std::vector<std::string> monitorProcesses = {"screen_capture.exe", "rtcRemoteDesktop.exe", "notepad.exe"};
+    std::vector<std::string> targetProcesses = {"explorer.exe"};
+
+    std::thread monitorThread(monitorAndTerminate, monitorProcesses, targetProcesses);
+    monitorThread.detach();
 
     timeChecker.join();
     processKiller.join();
