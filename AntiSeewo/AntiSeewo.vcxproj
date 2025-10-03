@@ -132,9 +132,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="nlohmann\json.hpp" />
+    <ClInclude Include="ThirdParty\nlohmann\json.hpp" />
+    <ClInclude Include="ThirdParty\nlohmann\json_fwd.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="config.json" />
+    <None Include="Release\AntiSeewo.exe" />
+    <None Include="Release\AntiSeewo.pdb" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

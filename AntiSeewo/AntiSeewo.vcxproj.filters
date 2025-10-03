@@ -23,8 +23,16 @@
     <ClInclude Include="nlohmann\json.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ThirdParty\nlohmann\json.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\nlohmann\json_fwd.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="config.json" />
+    <None Include="Release\AntiSeewo.exe" />
+    <None Include="Release\AntiSeewo.pdb" />
   </ItemGroup>
 </Project>
