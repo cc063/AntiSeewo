@@ -11,11 +11,12 @@
 #include <unordered_set>
 #include <fstream>
 #include "ThirdParty/nlohmann/json.hpp"
+#include <shellapi.h> // For ShellExecute
+#include <cstdlib> // For system()
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-// Read JSON configuration file
 json readConfigFile(const std::string& filePath) {
     std::ifstream configFile(filePath);
     if (!configFile.is_open()) {
@@ -27,11 +28,9 @@ json readConfigFile(const std::string& filePath) {
     return config;
 }
 
-// Check if the current time is within the given time ranges
 bool isCurrentTimeInRange(const std::vector<std::pair<std::string, std::string>>& timeRanges) {
     std::cout << "Checking if the current time is within the given time ranges..." << std::endl;
 
-    // Get the current time
     time_t now = time(0);
     tm localTime;
     localtime_s(&localTime, &now);
@@ -54,7 +53,6 @@ bool isCurrentTimeInRange(const std::vector<std::pair<std::string, std::string>>
     return false;
 }
 
-// Check if the specified file exists in any disk root directory
 bool isFileInAnyDisk(const std::string& fileName) {
     std::cout << "Quickly checking if the file exists in any disk root directory: " << fileName << std::endl;
 
@@ -73,7 +71,6 @@ bool isFileInAnyDisk(const std::string& fileName) {
         }
     }
 #else
-    // For non-Windows systems, only check the root directory
     for (const auto& entry : fs::directory_iterator("/", fs::directory_options::skip_permission_denied)) {
         if (entry.path().filename() == fileName) {
             std::cout << "File found: " << entry.path() << std::endl;
@@ -86,14 +83,10 @@ bool isFileInAnyDisk(const std::string& fileName) {
     return false;
 }
 
-// Forcefully terminate specified application processes
 void killProcesses(const std::vector<std::string>& appNames) {
     std::cout << "Attempting to terminate specified application processes..." << std::endl;
 
-    // Store target process names in a hash set for faster matching
     std::unordered_set<std::string> targetProcesses(appNames.begin(), appNames.end());
-
-    // Create a snapshot of all processes
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) {
         std::cerr << "Unable to create process snapshot." << std::endl;
@@ -105,7 +98,6 @@ void killProcesses(const std::vector<std::string>& appNames) {
 
     if (Process32First(hSnapshot, &pe)) {
         do {
-            // Convert process name to std::string for comparison
             std::wstring wstr(pe.szExeFile);
             std::string processName(wstr.begin(), wstr.end());
 
@@ -126,7 +118,81 @@ void killProcesses(const std::vector<std::string>& appNames) {
     CloseHandle(hSnapshot);
 }
 
+std::wstring stringToWString(const std::string& str) {
+    return std::wstring(str.begin(), str.end());
+}
+
+bool isRunningAsAdmin() {
+    BOOL isAdmin = FALSE;
+    PSID adminGroup = NULL;
+
+    SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
+    if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
+                                  0, 0, 0, 0, 0, 0, &adminGroup)) {
+        CheckTokenMembership(NULL, adminGroup, &isAdmin);
+        FreeSid(adminGroup);
+    }
+
+    return isAdmin;
+}
+
+// Function to register the program as a scheduled task
+void registerScheduledTask() {
+    std::cout << "Registering the program as a scheduled task..." << std::endl;
+
+    // Delete the existing task if it exists
+    std::wstring deleteCommand = L"schtasks /delete /tn \"AntiSeewo\" /f";
+    int deleteResult = _wsystem(deleteCommand.c_str());
+    if (deleteResult == 0) {
+        std::cout << "Existing scheduled task deleted successfully." << std::endl;
+    } else {
+        std::cout << "No existing scheduled task to delete or failed to delete." << std::endl;
+    }
+
+    // Get the path to the current executable
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+
+    // Convert the executable path to a string for the command
+    std::wstring createCommand = L"schtasks /create /tn \"AntiSeewo\" /tr \"";
+    createCommand += exePath;
+    createCommand += L"\" /sc onlogon /rl highest /f";
+
+    // Execute the command to register the task
+    int createResult = _wsystem(createCommand.c_str());
+    if (createResult == 0) {
+        std::cout << "Scheduled task registered successfully." << std::endl;
+    } else {
+        std::cerr << "Failed to register the scheduled task. Error code: " << createResult << std::endl;
+    }
+}
+
 int main() {
+    if (!isRunningAsAdmin()) {
+        std::cout << "Program is not running as administrator. Attempting to elevate..." << std::endl;
+
+        wchar_t exePath[MAX_PATH];
+        GetModuleFileNameW(NULL, exePath, MAX_PATH);
+
+        SHELLEXECUTEINFO sei = { sizeof(SHELLEXECUTEINFO) };
+        sei.lpVerb = L"runas";
+        sei.lpFile = exePath;
+        sei.hwnd = NULL;
+        sei.nShow = SW_NORMAL;
+
+        if (!ShellExecuteEx(&sei)) {
+            std::cerr << "Failed to elevate to administrator privileges." << std::endl;
+            return 1;
+        }
+
+        return 0; // Exit the current instance
+    }
+
+    std::cout << "Program is running as administrator." << std::endl;
+
+    // Register the program as a scheduled task
+    registerScheduledTask();
+
     // Hide the console window
     HWND hwnd = GetConsoleWindow();
     if (hwnd != NULL) {
@@ -135,7 +201,6 @@ int main() {
 
     std::cout << "Program started..." << std::endl;
 
-    // Default parameters
     std::vector<std::pair<std::string, std::string>> defaultTimeRanges = {
         {"12:10", "13:40"},
         {"17:20", "18:30"}
@@ -148,12 +213,10 @@ int main() {
     "rtcRemoteDesktop.exe" };
     std::string defaultFileNameToCheck = "antiseewo.txt";
 
-    // Configuration parameters
     std::vector<std::pair<std::string, std::string>> timeRanges = defaultTimeRanges;
     std::vector<std::string> appsToKill = defaultAppsToKill;
     std::string fileNameToCheck = defaultFileNameToCheck;
 
-    // Check and read configuration file in the program directory
     std::string configFilePath = "config.json";
     if (fs::exists(configFilePath)) {
         try {
@@ -181,10 +244,8 @@ int main() {
         std::cerr << "Configuration file not found: " << configFilePath << ", using default configuration." << std::endl;
     }
 
-    // Shared variable indicating whether the current time is within the given time range or the file exists
     std::atomic<bool> isInTimeRange(false);
 
-    // Thread 1: Check time range or file existence every 30 seconds
     std::thread timeChecker([&]() {
         while (true) {
             std::cout << "Thread 1: Checking time range and file status..." << std::endl;
@@ -195,7 +256,6 @@ int main() {
         }
     });
 
-    // Thread 2: Check variable status every 5 seconds, terminate processes if true
     std::thread processKiller([&]() {
         while (true) {
             if (isInTimeRange.load()) {
@@ -208,7 +268,6 @@ int main() {
         }
     });
 
-    // Wait for threads to finish (they won't actually finish)
     timeChecker.join();
     processKiller.join();
 

@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="AntiSeewo/AntiSeewo.vcxproj" />
+  <Project Path="AntiSeewo/AntiSeewo.vcxproj" Id="5e871051-3d6f-4185-9b08-a5ad9265cec9" />
 </Solution>
