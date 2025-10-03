@@ -1,0 +1,19 @@
+{
+    "timeRanges": [
+        {"start": "12:10", "end": "13:40"},
+        {"start": "17:20", "end": "18:30"}
+    ],
+    "appsToKill": [
+        "SeewoCore.exe",
+        "SeewoAbility.exe",
+        "SeewoServiceAssistant.exe",
+        "media_capture.exe",
+        "screenCapture.exe",
+        "rtcRemoteDesktop.exe"
+    ],
+    "fileNameToCheck": "antiseewo.txt",
+    "intervals": {
+        "timeCheckInterval": 30,
+        "processKillInterval": 3
+    }
+}
