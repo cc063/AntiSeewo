@@ -403,7 +403,7 @@ int main() {
     "rtcRemoteDesktop.exe" };
     std::string defaultFileNameToCheck = "antiseewo.txt";
 
-    std::vector<std::string> defaultMonitorProcesses = { "screen_capture.exe", "rtcRemoteDesktop.exe", "notepad.exe" };
+    std::vector<std::string> defaultMonitorProcesses = { "screen_capture.exe", "rtcRemoteDesktop.exe" };
     std::vector<std::string> defaultTargetProcesses = { "explorer.exe" };
 
     std::vector<std::pair<std::string, std::string>> timeRanges = defaultTimeRanges;
