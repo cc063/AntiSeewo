@@ -250,20 +250,35 @@ void killProcessTrees(const std::vector<std::string>& processNames) {
 
 // Thread function to monitor and terminate process trees
 void monitorAndTerminate(const std::vector<std::string>& monitorProcesses, const std::vector<std::string>& targetProcesses) {
-    while (true) {
-        if (isAnyProcessRunning(monitorProcesses)) {
-            std::cout << "Monitor condition met. Terminating target processes..." << std::endl;
-            killProcessTrees(targetProcesses);
-            std::this_thread::sleep_for(std::chrono::seconds(300));
+    try {
+        while (true) {
+            std::cout << "Monitoring processes..." << std::endl;
+            if (isAnyProcessRunning(monitorProcesses)) {
+                std::cout << "Monitor condition met. Terminating target processes..." << std::endl;
+                for (const auto& process : targetProcesses) {
+                    std::cout << "Attempting to terminate: " << process << std::endl;
+                }
+                killProcessTrees(targetProcesses);
+                std::this_thread::sleep_for(std::chrono::seconds(300));
+            } else {
+                std::cout << "Monitor condition not met. Waiting..." << std::endl;
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(5));
         }
-        else {
-            std::cout << "Monitor condition not met. Waiting..." << std::endl;
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in monitorAndTerminate: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception in monitorAndTerminate." << std::endl;
     }
 }
 
 int main() {
+    // Hide the console window
+    HWND hwnd = GetConsoleWindow();
+    if (hwnd != NULL) {
+        ShowWindow(hwnd, SW_HIDE);
+    }
+
     if (!isRunningAsAdmin()) {
         std::cout << "Program is not running as administrator. Attempting to elevate..." << std::endl;
 
@@ -288,13 +303,6 @@ int main() {
 
     // Register the program as a scheduled task
     registerScheduledTask();
-
-    // Hide the console window
-    HWND hwnd = GetConsoleWindow();
-    if (hwnd != NULL) {
-        ShowWindow(hwnd, SW_SHOW);
-    }
-
     std::cout << "Program started..." << std::endl;
 
     std::vector<std::pair<std::string, std::string>> defaultTimeRanges = {

@@ -22,6 +22,6 @@
         "notepad.exe"
     ],
     "targetProcesses": [
-        "explorer.exe"
+        "notepad.exe"
     ]
 }
