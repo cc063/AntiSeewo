@@ -1,4 +1,8 @@
 {
+    "timeRanges": [
+        {"start": "12:10", "end": "13:40"},
+        {"start": "17:20", "end": "18:30"}
+    ],
     "appsToKill": [
         "SeewoCore.exe",
         "SeewoAbility.exe",
@@ -8,22 +12,16 @@
         "rtcRemoteDesktop.exe"
     ],
     "fileNameToCheck": "antiseewo.txt",
+    "intervals": {
+        "timeCheckInterval": 30,
+        "processKillInterval": 3
+    },
     "monitorProcesses": [
         "screen_capture.exe",
         "rtcRemoteDesktop.exe",
         "notepad.exe"
     ],
     "targetProcesses": [
-        "explorer.exe"
-    ],
-    "timeRanges": [
-        {
-            "end": "13:40",
-            "start": "12:10"
-        },
-        {
-            "end": "18:30",
-            "start": "17:20"
-        }
+        "notepad.exe"
     ]
 }

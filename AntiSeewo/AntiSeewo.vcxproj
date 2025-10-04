@@ -136,7 +136,7 @@
     <ClInclude Include="ThirdParty\nlohmann\json_fwd.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="config.json" />
+    <None Include="config1.json" />
     <None Include="Release\AntiSeewo.exe" />
     <None Include="Release\AntiSeewo.pdb" />
   </ItemGroup>

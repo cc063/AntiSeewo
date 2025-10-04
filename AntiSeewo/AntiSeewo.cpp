@@ -13,6 +13,9 @@
 #include "ThirdParty/nlohmann/json.hpp"
 #include <shellapi.h> // For ShellExecute
 #include <cstdlib> // For system()
+#include <commctrl.h> // For InitCommonControls
+#include <string>
+
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
@@ -116,10 +119,6 @@ void killProcesses(const std::vector<std::string>& appNames) {
     }
 
     CloseHandle(hSnapshot);
-}
-
-std::wstring stringToWString(const std::string& str) {
-    return std::wstring(str.begin(), str.end());
 }
 
 bool isRunningAsAdmin() {
@@ -272,6 +271,93 @@ void monitorAndTerminate(const std::vector<std::string>& monitorProcesses, const
     }
 }
 
+NOTIFYICONDATA nid;
+HMENU hTrayMenu;
+
+// Helper function to convert std::string to std::wstring
+std::wstring stringToWString(const std::string& str) {
+    return std::wstring(str.begin(), str.end());
+}
+
+// Function to handle tray menu commands
+void ShowConfigEditor() {
+    // Open the configuration file in the default text editor
+    ShellExecute(NULL, L"open", L"config.json", NULL, NULL, SW_SHOWNORMAL);
+}
+
+void ExitProgram() {
+    Shell_NotifyIcon(NIM_DELETE, &nid);
+    PostQuitMessage(0);
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case 1: // Edit Config
+            ShowConfigEditor();
+            break;
+        case 2: // Exit
+            ExitProgram();
+            break;
+        }
+        break;
+
+    case WM_USER + 1: // Tray icon message
+        if (lParam == WM_RBUTTONDOWN) {
+            POINT pt;
+            GetCursorPos(&pt);
+            SetForegroundWindow(hwnd);
+            TrackPopupMenu(hTrayMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+        }
+        break;
+
+    case WM_DESTROY:
+        ExitProgram();
+        break;
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+void AddTrayIcon(HWND hwnd) {
+    memset(&nid, 0, sizeof(nid));
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uCallbackMessage = WM_USER + 1;
+    nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wcscpy_s(nid.szTip, L"AntiSeewo");
+    Shell_NotifyIcon(NIM_ADD, &nid);
+}
+
+int RunTrayIcon() {
+    const wchar_t* className = L"AntiSeewoTrayClass";
+
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = className;
+
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindowEx(0, className, L"AntiSeewo Tray", 0, 0, 0, 0, 0, NULL, NULL, GetModuleHandle(NULL), NULL);
+
+    AddTrayIcon(hwnd);
+
+    hTrayMenu = CreatePopupMenu();
+    AppendMenu(hTrayMenu, MF_STRING, 1, L"Edit Config");
+    AppendMenu(hTrayMenu, MF_STRING, 2, L"Exit");
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return 0;
+}
+
 int main() {
     // Hide the console window
     HWND hwnd = GetConsoleWindow();
@@ -358,9 +444,28 @@ int main() {
         catch (const std::exception& e) {
             std::cerr << "Error reading configuration file: " << e.what() << std::endl;
         }
-    }
-    else {
-        std::cerr << "Configuration file not found: " << configFilePath << ", using default configuration." << std::endl;
+    } else {
+        std::cerr << "Configuration file not found: " << configFilePath << ", creating default configuration." << std::endl;
+
+        json defaultConfig = {
+            {"timeRanges", json::array({
+                { {"start", "12:10"}, {"end", "13:40"} },
+                { {"start", "17:20"}, {"end", "18:30"} }
+            })},
+            {"appsToKill", defaultAppsToKill},
+            {"fileNameToCheck", defaultFileNameToCheck},
+            {"monitorProcesses", defaultMonitorProcesses},
+            {"targetProcesses", defaultTargetProcesses}
+        };
+
+        std::ofstream configFile(configFilePath);
+        if (configFile.is_open()) {
+            configFile << defaultConfig.dump(4); // Pretty print with 4 spaces
+            configFile.close();
+            std::cout << "Default configuration file created: " << configFilePath << std::endl;
+        } else {
+            std::cerr << "Failed to create default configuration file: " << configFilePath << std::endl;
+        }
     }
 
     std::atomic<bool> isInTimeRange(false);
@@ -390,6 +495,8 @@ int main() {
 
     std::thread monitorThread(monitorAndTerminate, monitorProcesses, targetProcesses);
     monitorThread.detach();
+
+    RunTrayIcon();
 
     timeChecker.join();
     processKiller.join();
