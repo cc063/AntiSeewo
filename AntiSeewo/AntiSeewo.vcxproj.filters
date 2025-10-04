@@ -31,8 +31,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Release\AntiSeewo.exe" />
-    <None Include="Release\AntiSeewo.pdb" />
     <None Include="config.json" />
   </ItemGroup>
 </Project>
