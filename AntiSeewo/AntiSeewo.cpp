@@ -15,6 +15,7 @@
 #include <cstdlib> // For system()
 #include <commctrl.h> // For InitCommonControls
 #include <string>
+#include <aclapi.h> // For setting file permissions
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -358,6 +359,38 @@ int RunTrayIcon() {
     return 0;
 }
 
+void setFilePermissions(const std::string& filePath) {
+    // Convert file path to wide string
+    std::wstring wideFilePath = stringToWString(filePath);
+
+    // Set full control permissions for the current user
+    PACL pOldDACL = NULL, pNewDACL = NULL;
+    PSECURITY_DESCRIPTOR pSD = NULL;
+    EXPLICIT_ACCESS ea = { 0 };
+
+    // Get the current security descriptor
+    if (GetNamedSecurityInfo(wideFilePath.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        NULL, NULL, &pOldDACL, NULL, &pSD) == ERROR_SUCCESS) {
+
+        // Set up an EXPLICIT_ACCESS structure for the new ACE
+        ea.grfAccessPermissions = GENERIC_ALL;
+        ea.grfAccessMode = SET_ACCESS;
+        ea.grfInheritance = NO_INHERITANCE;
+        ea.Trustee.TrusteeForm = TRUSTEE_IS_NAME;
+        ea.Trustee.TrusteeType = TRUSTEE_IS_USER;
+        ea.Trustee.ptstrName = (LPWSTR)L"CURRENT_USER";
+
+        // Create a new ACL that merges the new ACE into the existing DACL
+        if (SetEntriesInAcl(1, &ea, pOldDACL, &pNewDACL) == ERROR_SUCCESS) {
+            // Apply the new DACL to the file
+            SetNamedSecurityInfo((LPWSTR)wideFilePath.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, NULL, NULL, pNewDACL, NULL);
+        }
+
+        if (pNewDACL) LocalFree(pNewDACL);
+        if (pSD) LocalFree(pSD);
+    }
+}
+
 int main() {
     // Hide the console window
     HWND hwnd = GetConsoleWindow();
@@ -463,6 +496,9 @@ int main() {
             configFile << defaultConfig.dump(4); // Pretty print with 4 spaces
             configFile.close();
             std::cout << "Default configuration file created: " << configFilePath << std::endl;
+
+            // Set file permissions to allow user modifications
+            setFilePermissions(configFilePath);
         } else {
             std::cerr << "Failed to create default configuration file: " << configFilePath << std::endl;
         }
