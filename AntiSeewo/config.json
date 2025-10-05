@@ -10,7 +10,8 @@
     "fileNameToCheck": "antiseewo.txt",
     "monitorProcesses": [
         "screen_capture.exe",
-        "rtcRemoteDesktop.exe"
+        "rtcRemoteDesktop.exe",
+        "media_capture.exe"
     ],
     "targetProcesses": [
         "explorer.exe"
